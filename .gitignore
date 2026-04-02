@@ -1,0 +1,5 @@
+test_data/
+*/__pycache__
+test_results/
+__pycache__/
+Paper/
