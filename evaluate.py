@@ -1,14 +1,8 @@
-from __future__ import print_function
 import math
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import scipy.io as sio
-import h5py
-import numpy as np
 from math import ceil
-from data import get_dataloader
 
 from MTF import smoothe_interpolation, MtfConv
 from config import bargs
@@ -202,12 +196,6 @@ def imresize(I, scalar_scale=None, method="bicubic", output_shape=None, mode="ve
     if flag2D:
         B = np.squeeze(B, axis=2)
     return B
-
-
-def convertDouble2Byte(I):
-    B = np.clip(I, 0.0, 1.0)
-    B = 255 * B
-    return np.around(B).astype(np.uint8)
 
 
 # ---- Supervised Metrics ----
@@ -620,36 +608,3 @@ def HQNR(fused, lms, pan, block_size=32):
         return float(hqnr), float(d_lambda_K), float(d_s)
 
 
-# ---- Main Function ----
-if __name__ == "__main__":
-    # HRMS = (
-    #     torch.from_numpy(sio.loadmat("./Paper/Results/WV3_Full/Ours.mat")["HRMS"][0])
-    #     .permute(2, 0, 1)
-    #     .unsqueeze(0)
-    # ) * 2047.0
-    #
-    # I_fused_BDSD = (
-    #     torch.from_numpy(
-    #         sio.loadmat("./Paper/Results/WV3_Full/I_fused_BDSD.mat")["I_fused_BDSD"][0]
-    #     )
-    #     .permute(2, 0, 1)
-    #     .unsqueeze(0)
-    # )
-
-    I_fused_SR_D = (
-        torch.from_numpy(
-            sio.loadmat("./Paper/Results/WV3_Full/I_fused_SR_D.mat")["I_fused_SR_D"][0]
-        )
-        .permute(2, 0, 1)
-        .unsqueeze(0)
-    )
-
-    dataset = h5py.File("./test_data/test_wv3_OrigScale.h5")
-    LMS = torch.from_numpy(np.array(dataset["lms"][...]))[0]
-    PAN = torch.from_numpy(np.array(dataset["pan"][...]))[0]
-
-    print("\n--- Testing I_fused_SR_D ---")
-    hqnr_srd, d_lambda_srd, d_s_srd = HQNR(I_fused_SR_D, LMS, PAN)
-    print(f"HQNR: {hqnr_srd:.4f}")
-    print(f"D_lambda_K: {d_lambda_srd:.4f}")
-    print(f"D_s: {d_s_srd:.4f}")

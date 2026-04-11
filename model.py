@@ -1,11 +1,8 @@
 from models.common import ConvNext, Permute
-from misc.encoding import *
-from misc.misc import make_intcoord
 from models.UNet import *
-from MTF import MTF_MS, MTFGenrator_torch
+from MTF import MTF_MS
 from config import margs
 
-from einops import rearrange
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -63,30 +60,9 @@ class HRMS2PAN(nn.Module):
             ),
         )
 
-        # self.unfold = nn.Unfold(kernel_size=3, stride=1, padding=1)
-        # unfolded_channels = margs.channel * 9
-        # self.backbone = nn.Sequential(
-        #     nn.Conv2d(
-        #         unfolded_channels,
-        #         hidden_dim,
-        #         kernel_size=3,
-        #         stride=1,
-        #         padding=2,
-        #         dilation=2,
-        #     ),
-        #     nn.BatchNorm2d(hidden_dim),
-        #     nn.LeakyReLU(inplace=True),
-        #     nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, stride=1, padding=1),
-        #     nn.BatchNorm2d(hidden_dim),
-        #     nn.LeakyReLU(inplace=True),
-        #     nn.Conv2d(hidden_dim, 1, kernel_size=3, stride=1, padding=1),
-        # )
         self.to(margs.device, margs._dtype)
 
     def forward(self, x):
-        # H, W = x.shape[-2:]
-        # unfolded_x = self.unfold(x)
-        # rearranged_x = rearrange(unfolded_x, "b c (h w) -> b c h w", h=H, w=W)
         return self.backbone(x)
 
 
@@ -147,36 +123,3 @@ class MRANet(nn.Module):
             return gt_pred, ms_pred, pan_pred, gout
 
 
-@torch.compile
-class MTFNet(nn.Module):
-    def __init__(self, hidden_dim=128):
-        super().__init__()
-
-        self.mtfnet = nn.Sequential(
-            nn.Linear(margs.channel, hidden_dim),
-            nn.LeakyReLU(),
-            nn.Linear(hidden_dim, margs.channel),
-            nn.Sigmoid(),
-        )
-        self.register_buffer("Gnyq", MTF_MS(4, gain_only=True))
-        self.kern_generator = MTFGenrator_torch(self.Gnyq, 4)
-
-        self.to(margs.device, margs._dtype)
-
-    def forward(self, x):
-        kernel = self.kern_generator(self.mtfnet(self.Gnyq))
-        ms_pred = F.conv2d(
-            F.pad(x, (20, 20, 20, 20), mode="replicate"),
-            weight=kernel,
-            bias=None,
-            stride=1,
-            padding=0,
-            groups=margs.channel,
-        )[:, :, 2:-1:4, 2:-1:4]
-
-        return ms_pred, kernel
-
-
-# ---- Others ----
-def conti_clamp(inp, min, max):
-    return inp.clamp(min=min, max=max).detach() + inp - inp.detach()
